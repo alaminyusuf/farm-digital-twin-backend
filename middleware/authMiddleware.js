@@ -18,7 +18,7 @@ const protect = asyncHandler(async (req, res, next) => {
 
 			// 2. Verify token
 			// Uses the secret key defined in your environment variables
-			const jwtSecret = process.env.JWT_SECRET || "CHANGE_THIS_JWT_SECRET";
+			const jwtSecret = process.env.JWT_SECRET;
 			const decoded = jwt.verify(token, jwtSecret);
 
 			// 3. Get user from the token payload (excluding the password)

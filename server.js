@@ -1,5 +1,8 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 
@@ -10,6 +13,13 @@ const organizationRoutes = require("./routes/organizationRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const simulationRoutes = require("./routes/simulationRoutes");
 const connectDB = require("./config/db");
+const validateEnv = require("./utils/validateEnv");
+const { notFound, errorHandler } = require("./middleware/errorMiddleware");
+
+// Validate environment variables on startup
+if (process.env.NODE_ENV === "production") {
+    validateEnv();
+}
 
 connectDB();
 
@@ -23,7 +33,12 @@ const swaggerOptions = {
 			contact: {
 				name: "Developer",
 			},
-			servers: ["http://localhost:4000"],
+			servers: [
+				{
+					url: process.env.BACKEND_URL || "http://localhost:4000",
+					description: "Development Server",
+				},
+			],
 		},
 		components: {
 			securitySchemes: {
@@ -43,8 +58,40 @@ const swaggerDocs = swaggerJsDoc(swaggerOptions);
 
 const app = express();
 
+// Security Middleware
+app.use(helmet());
+
+// Logging Middleware
+if (process.env.NODE_ENV === "development") {
+    app.use(morgan("dev"));
+} else {
+    app.use(morgan("combined"));
+}
+
+// Rate Limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: "Too many requests from this IP, please try again after 15 minutes",
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use("/api/", limiter);
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
-app.use(cors({ origin: true }));
+const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ["http://localhost:5173", "http://localhost:4000"];
+app.use(cors({ 
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
+            return callback(null, true);
+        } else {
+            return callback(new Error("Not allowed by CORS"));
+        }
+    },
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/users", userRoutes);
@@ -53,6 +100,15 @@ app.use("/api/batches", batchRoutes);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/simulation", simulationRoutes);
+
+// Health Check
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
+// Error Handling Middleware
+app.use(notFound);
+app.use(errorHandler);
 
 const http = require("http");
 const socketService = require("./utils/socket");

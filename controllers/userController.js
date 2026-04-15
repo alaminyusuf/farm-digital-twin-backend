@@ -6,7 +6,7 @@ const Organization = require("../models/Organization");
 
 // Helper function to generate JWT (remains the same)
 const generateToken = (id) => {
-	const jwtSecret = process.env.JWT_SECRET || "CHANGE_THIS_JWT_SECRET";
+	const jwtSecret = process.env.JWT_SECRET;
 	return jwt.sign({ id }, jwtSecret, {
 		expiresIn: "30d",
 	});

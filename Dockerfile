@@ -7,8 +7,14 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies (only production if needed, but let's keep all for now)
-RUN npm install
+# Install dependencies
+# Using ci for more reliable builds, and only installing production dependencies if NODE_ENV is production
+ARG NODE_ENV=production
+ENV NODE_ENV=$NODE_ENV
+RUN if [ "$NODE_ENV" = "production" ]; \
+	then npm ci --only=production; \
+	else npm install; \
+	fi
 
 # Copy the rest of the application code
 COPY . .
@@ -17,4 +23,4 @@ COPY . .
 EXPOSE 4000
 
 # Start the application
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]

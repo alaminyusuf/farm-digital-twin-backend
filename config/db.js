@@ -1,15 +1,17 @@
 const mongoose = require("mongoose");
 
 // Get MongoDB connection URI from environment variables
-const MONGO_URI =
-	process.env.MONGO_URI || "mongodb://localhost:27017/hydro-manager";
+const MONGO_URI = process.env.MONGO_URI;
 
 /**
  * Connects to the MongoDB database.
  */
 const connectDB = async () => {
 	try {
-		mongoose.connect(MONGO_URI);
+		mongoose.connect(MONGO_URI, {
+			serverSelectionTimeoutMS: 5000,
+			connectTimeoutMS: 10000,
+		});
 		const connection = mongoose.connection;
 
 		connection.on("connected", () => {
@@ -18,7 +20,7 @@ const connectDB = async () => {
 
 		connection.on("error", (err) => {
 			console.log("MongoDB connected ERROR. " + err);
-			process.exit();
+			process.exit(1);
 		});
 	} catch (error) {
 		console.log("Ups! Something went wrong! " + error);
