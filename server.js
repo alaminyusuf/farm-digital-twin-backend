@@ -83,9 +83,7 @@ app.use("/api/", limiter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // CORS Configuration - FIX for production
-const allowedOrigins = process.env.NODE_ENV === "production"
-    ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
-    : ["http://localhost:5173", "http://localhost:4000"];
+const allowedOrigins = [process.env.FRONTEND_URL]
 
 app.use(cors({ 
     origin: (origin, callback) => {
