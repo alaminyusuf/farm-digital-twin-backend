@@ -58,8 +58,10 @@ const swaggerDocs = swaggerJsDoc(swaggerOptions);
 
 const app = express();
 
-// Security Middleware
-app.use(helmet());
+// Security Middleware - Configure helmet to not block CORS
+app.use(helmet({
+	crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Logging Middleware
 if (process.env.NODE_ENV === "development") {
@@ -79,19 +81,35 @@ const limiter = rateLimit({
 app.use("/api/", limiter);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
-const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ["http://localhost:5173", "http://localhost:4000"];
+
+// CORS Configuration - FIX for production
+const allowedOrigins = process.env.NODE_ENV === "production"
+    ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+    : ["http://localhost:5173", "http://localhost:4000"];
+
 app.use(cors({ 
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
+        
+        if (allowedOrigins.length === 0) {
+            // Production without FRONTEND_URL set - log warning
+            console.warn("CORS: No allowed origins configured for production. Set FRONTEND_URL environment variable.");
+            return callback(new Error("FRONTEND_URL not configured"));
+        }
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
             return callback(null, true);
         } else {
+            console.warn(`CORS: Origin '${origin}' not allowed. Allowed origins: ${allowedOrigins.join(", ")}`);
             return callback(new Error("Not allowed by CORS"));
         }
     },
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/users", userRoutes);
